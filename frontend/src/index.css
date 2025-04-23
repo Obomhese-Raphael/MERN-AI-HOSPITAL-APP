@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&display=swap');
+@import "tailwindcss";
+
+* {
+  font-family: "Lora", serif;
+}
+
+.logo-font{
+  font-family: "Dancing Script", cursive;
+  font-size: 2.5rem;
+}
+
+.font-logo{
+  font-family: "Dancing Script", cursive;
+}
