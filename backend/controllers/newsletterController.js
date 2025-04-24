@@ -1,4 +1,4 @@
-import Newsletter from "../models/Newsletter";
+import Newsletter from "../models/NewsletterModel.js";
 
 export const subscribeNewsletter = async (req, res) => {
   const { email } = req.body;
@@ -6,18 +6,19 @@ export const subscribeNewsletter = async (req, res) => {
   try {
     const existingSubscription = await Newsletter.findOne({ email });
     if (existingSubscription) {
-      return res
-        .status(409)
-        .json({ message: "You are already subscribed to our newsletter." });
+      return res.status(409).json({
+        message: "This email is already subscribed.",
+      });
     }
 
-    const newSubscription = new Newsletter({ email });
-    await newSubscription.save();
-    res
-      .status(201)
-      .json({ message: "Successfully subscribed to the newsletter!" });
+    await Newsletter.create({ email });
+    res.status(201).json({
+      message: "Thank you for subscribing!",
+    });
   } catch (error) {
-    console.error("Error subscribing to newsletter:", error);
-    res.status(500).json({ message: "Failed to subscribe to the newsletter." });
+    console.error("Newsletter error:", error);
+    res.status(500).json({
+      message: "Subscription failed. Please try again.",
+    });
   }
 };

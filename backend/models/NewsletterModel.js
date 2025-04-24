@@ -1,12 +1,15 @@
-// backend/models/Newsletter.js
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
 const newsletterSchema = new mongoose.Schema(
   {
-    email: { type: String, required: true, unique: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please use a valid email address"],
+    },
   },
   { timestamps: true }
 );
 
-const Newsletter = mongoose.model("Newsletter", newsletterSchema);
-export default Newsletter;
+export default mongoose.model("Newsletter", newsletterSchema);
