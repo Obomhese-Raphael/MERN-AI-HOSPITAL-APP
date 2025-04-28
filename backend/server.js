@@ -32,7 +32,6 @@ app.get('/', (req, res) => {
 app.post("/webhooks", clerkWebhooks);
 app.use("/api/contact", contactRouter);
 app.use("/api/newsletter", newsletterRoute);
-app.use("/api/calls", callRouter);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
