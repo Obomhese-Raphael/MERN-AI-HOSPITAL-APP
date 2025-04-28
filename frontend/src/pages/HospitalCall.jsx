@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FaPhoneSlash, FaPhone, FaHome } from "react-icons/fa";
 import assets from "../assets/assets";
 import { useUser } from "@clerk/clerk-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getVapiClient, initializeVapi } from "../utils/vapi-client";
+import { getCallAnalysis, getVapiClient, initializeVapi } from "../utils/vapi-client";
 
 const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
@@ -27,125 +27,171 @@ const HospitalCall = () => {
     date: new Date().toISOString(),
   });
 
+  const clientRef = useRef(null);
+
   useEffect(() => {
-    const client = getVapiClient(PUBLIC_KEY);
+    const initVapi = async () => {
+      try {
+        const client = initializeVapi(PUBLIC_KEY);
+        clientRef.current = client;
 
-    const handleCallStart = () => {
-      setCallStatus("Consultation in Progress");
-      setIsCallActive(true);
-    };
+        const handleCallStart = () => {
+          setCallStatus("Consultation in Progress");
+          setIsCallActive(true);
+        };
 
-    const handleCallEnd = () => {
-      setCallStatus("Consultation Ended");
-      setIsCallActive(false);
+        const handleCallEnd = () => {
+          setCallStatus("Consultation Ended");
+          setIsCallActive(false);
+          console.log("CLIENT REF IN HANDLECALL END: ", clientRef);
+          console.log("CLIENT IN HANDLECALL END: ", client);
+          if (clientRef.current?.call?.callClientId) {
+            fetchAndLogAnalysis(clientRef.current.call.callClientId);
+          } else if (routeCallId) {
+            fetchAndLogAnalysis(routeCallId);
+          } else {
+            console.warn("No call ID available to fetch analysis.");
+          }
+        };
 
-      // Analyze messages to generate feedback (simplified example)
-      const userMessages = messages.filter((msg) => msg.startsWith("You:"));
-      const doctorMessages = messages.filter((msg) =>
-        msg.startsWith("Doctor:")
-      );
+        const handleMessage = (msg) => {
+          if (msg.type === "transcript" && msg.transcriptType === "final") {
+            const newMessage = `${msg.role === "user" ? "You" : "Doctor"}: ${
+              msg.transcript
+            }`;
+            setLatestMessage(newMessage);
+            setMessages((prev) => [...prev, newMessage]);
+          }
+        };
 
-      // Simple analysis - in a real app you'd use more sophisticated NLP
-      const extractedSymptoms = userMessages
-        .join(" ")
-        .replace(/You:/g, "")
-        .trim();
-      const extractedSolutions = doctorMessages
-        .join(" ")
-        .replace(/Doctor:/g, "")
-        .trim();
+        const onSpeechStart = () => setIsSpeaking(true);
+        const onSpeechEnd = () => setIsSpeaking(false);
 
-      setFeedbackData({
-        symptoms: extractedSymptoms || "Not specified",
-        issue: diagnoseFromSymptoms(extractedSymptoms), // You'd implement this function
-        timeOfInjury: extractTimeReference(extractedSymptoms), // Implement this
-        prescribedSolution:
-          extractedSolutions || "No specific solution provided",
-        followUpRecommendation: generateFollowUp(extractedSolutions), // Implement this
-        overallAssessment: calculateAssessmentScore(), // Implement scoring logic
-        date: new Date().toISOString(),
-      });
-
-      // Redirect to feedback after 3 seconds
-      setTimeout(() => {
-        navigate(`/feedback/${routeCallId}`, { state: { feedbackData } });
-      }, 3000);
-    };
-
-    const handleMessage = (msg) => {
-      if (msg.type === "transcript" && msg.transcriptType === "final") {
-        const newMessage = `${msg.role === "user" ? "You" : "Doctor"}: ${
-          msg.transcript
-        }`;
-        setLatestMessage(newMessage);
-        setMessages((prev) => [...prev, newMessage]);
+        if (client) {
+          client.on("call-start", handleCallStart);
+          client.on("call-end", handleCallEnd);
+          client.on("message", handleMessage);
+          client.on("speech-start", onSpeechStart);
+          client.on("speech-end", onSpeechEnd);
+        }
+      } catch (error) {
+        console.error("VAPI initialization error:", error);
+        setCallStatus("Failed to initialize voice assistant");
       }
     };
 
-    const onSpeechStart = () => setIsSpeaking(true);
-    const onSpeechEnd = () => setIsSpeaking(false);
-
-    if (client) {
-      client.on("call-start", handleCallStart);
-      client.on("call-end", handleCallEnd);
-      client.on("message", handleMessage);
-      client.on("speech-start", onSpeechStart);
-      client.on("speech-end", onSpeechEnd);
-    }
+    initVapi();
 
     return () => {
-      if (client?.call?.status === "active") {
-        client.stop().catch(console.error);
+      if (clientRef.current?.call?.status === "active") {
+        clientRef.current.stop().catch(console.error);
       }
     };
-  }, [navigate]);
+  }, [navigate, routeCallId]);
 
-   const startCall = async () => {
+  const fetchAndLogAnalysis = async () => {
+    try {
+      const analysis = await getCallAnalysis(callId);
+      console.log("Call Analysis Summary: ", analysis);
+    } catch (error) {
+      console.log("Error fetching call analysis: ", error);
+    }
+  };
+
+  const startCall = async () => {
     try {
       setCallStatus("Connecting...");
-      const client = initializeVapi(PUBLIC_KEY);
-      await client.start(ASSISTANT_ID);
-      setIsCallActive(true);
+      const client = getVapiClient();
+      const assistantConfig = {
+        assistantId: ASSISTANT_ID,
+        analysis: {
+          summaryPrompt:
+            "You are a medical assistant. Summarize this consultation including symptoms discussed, potential diagnoses, and recommendations.",
+          structuredDataSchema: {
+            type: "object",
+            properties: {
+              symptoms: { type: "string" },
+              diagnoses: { type: "string" },
+              recommendations: { type: "string" },
+              followUpRequired: { type: "boolean" },
+            },
+            required: ["symptoms", "recommendations"],
+          },
+          successEvaluationPrompt:
+            "Evaluate this medical consultation on: 1) Symptom understanding 2) Appropriate advice 3) Clarity 4) Next steps",
+          successEvaluationRubric: "DescriptiveScale",
+        },
+      };
+
+      const call = await client.start(assistantConfig);
+      return call;
     } catch (error) {
-      console.error("Call failed:", error);
-      setCallStatus("Connection Failed");
+      console.error("Call start failed:", error);
+      throw error;
     }
   };
 
   const endCall = async () => {
-    const client = getVapiClient(PUBLIC_KEY);
-    if (client?.call?.status === "active") {
-      try {
-        await client.stop();
-      } catch (error) {
-        console.error("Error ending call:", error);
-      } finally {
-        setIsCallActive(false);
-        setCallStatus("Call ended.");
+    try {
+      setCallStatus("Ending call...");
+      const client = clientRef.current;
+      console.log("CLIENT IN END CALL :", client);
+
+      if (!client) {
+        console.error("No VAPI client instance found");
+        setCallStatus("Error: No client instance");
+        return;
       }
+
+      // Capture callId before ending the Call
+      const callId = client?.call?.callClientId;
+      const callDetails = client?.call;
+
+      if (callDetails) {
+        console.log("CALL DETAILS: ", callDetails);
+      }
+
+      // Try all possible ways to end the call
+      if (typeof client.stop === "function") {
+        await client.stop();
+      } else if (typeof client.end === "function") {
+        await client.end();
+      } else if (client.call?.stop) {
+        await client.call.stop();
+      } else if (client.call?.end) {
+        await client.call.end();
+      } else {
+        console.warn("No valid stop method found on client");
+      }
+
+      setIsCallActive(false);
+      setCallStatus("Call ended");
+
+      if (callId) {
+        setTimeout(() => {
+          navigate(`/hospital-call/${callId}/summary`);
+        }, 1500);
+      } else {
+        console.warn(
+          "No call ID was captured before ending call for navigation"
+        );
+        navigate("/consultation-summary");
+      }
+    } catch (error) {
+      console.error("Error ending call:", error);
+      setCallStatus("Error ending call");
+      setIsCallActive(false);
     }
   };
 
-  // Placeholder functions - you'll need to implement these based on your logic
-  const diagnoseFromSymptoms = (symptoms) => {
-    // Implement your symptom analysis logic here
-    return "Preliminary diagnosis based on symptoms";
-  };
-
-  const extractTimeReference = (text) => {
-    // Implement logic to extract time references from the text
-    return "Time of injury/onset not clearly specified";
-  };
-
-  const generateFollowUp = (solution) => {
-    // Implement logic to generate follow-up recommendations
-    return "Follow up as needed";
-  };
-
-  const calculateAssessmentScore = () => {
-    // Implement logic to calculate an overall assessment score
-    return 0;
-  };
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (clientRef.current?.call?.status === "active") {
+        clientRef.current.stop().catch(console.error);
+      }
+    };
+  }, []);
 
   if (callStatus.includes("Failed") || callStatus.includes("Error")) {
     return (
@@ -194,9 +240,7 @@ const HospitalCall = () => {
               <div className="mx-auto w-24 h-24 mb-4">
                 <img
                   src={
-                    user?.user?.hasImage
-                      ? user?.user?.imageUrl
-                      : assets.johnDoe
+                    user?.user?.hasImage ? user?.user?.imageUrl : assets.johnDoe
                   }
                   alt="Patient"
                   width={100}

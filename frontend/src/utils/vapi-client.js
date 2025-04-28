@@ -1,24 +1,32 @@
-// utils/vapi-client.js
-import Vapi from '@vapi-ai/web';
+import Vapi from "@vapi-ai/web";
 
 let vapiClient = null;
 
 export const initializeVapi = (publicKey) => {
-  if (vapiClient) return vapiClient; // Return existing client if already initialized
-
-  vapiClient = new Vapi(publicKey);
-
-  // Add basic event listeners
-  vapiClient.on("call-start", () => console.log("Call started"));
-  vapiClient.on("call-end", () => console.log("Call ended"));
-  vapiClient.on("error", (error) => console.error("VAPI error:", error));
-
+  if (!vapiClient) {
+    vapiClient = new Vapi(publicKey);
+    // Add basic event listeners
+    vapiClient.on("call-start", () => console.log("Call started"));
+    vapiClient.on("call-end", () => console.log("Call ended"));
+    vapiClient.on("error", (error) => console.error("VAPI error:", error));
+  }
   return vapiClient;
 };
 
+export const isCallActive = () => {
+  if (!vapiClient) return false;
+
+  // Check for different versions of the SDK
+  return (
+    vapiClient.isActive?.() || // Newer versions
+    vapiClient.call?.status === "active" || // Older versions
+    vapiClient.active
+  ); // Alternative property
+};
+
 export const startCall = async (assistantId) => {
-  const client = getVapiClient();
   try {
+    const client = getVapiClient();
     const call = await client.start(assistantId);
     return {
       callId: call.id,
@@ -32,17 +40,42 @@ export const startCall = async (assistantId) => {
 };
 
 export const stopCall = async () => {
-  if (!vapiClient) return;
+  const client = getVapiClient();
+  if (!client) return;
+
   try {
-    await vapiClient.stop();
+    // Try different stop methods for compatibility
+    if (typeof client.stop === "function") {
+      await client.stop();
+    } else if (typeof client.end === "function") {
+      await client.end();
+    } else if (client.call?.end) {
+      await client.call.end();
+    }
   } catch (error) {
-    console.error('Call stop error:', error);
+    console.error("Call stop error:", error);
     throw error;
   }
 };
 
-export const isCallActive = () => {
-  return vapiClient?.call?.status === 'active';
+export const getCallAnalysis = async (callId) => {
+  const client = getVapiClient();
+
+  console.log("CLIENT IN getCallAnalyis: ", client);
+  if (!client) throw new Error("Vapi client not initialized");
+
+  try {
+    const analysis = await client.getCallAnalysis(callId);
+    return analysis;
+  } catch (error) {
+    console.error("Error getting call analysis:", error);
+    throw error;
+  }
 };
 
-export const getVapiClient = () => vapiClient;
+export const getVapiClient = () => {
+  if (!vapiClient) {
+    throw new Error("Vapi client not initialized. Call initializeVapi first.");
+  }
+  return vapiClient;
+};
