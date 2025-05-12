@@ -4,8 +4,7 @@ import "dotenv/config";
 import connectDB from './config/mongodb.js';
 import { clerkWebhooks } from './controllers/webhookController.js';
 import contactRouter from './routes/contactRoute.js';
-import newsletterRoute from './routes/newsLeterRoute.js';
-import callRouter from './routes/callRoute.js';
+import newsletterRoute from './routes/newsLeterRoute.js'; 
 
 const app = express();
 connectDB();
