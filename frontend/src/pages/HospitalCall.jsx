@@ -17,15 +17,15 @@ const HospitalCall = () => {
   const [latestMessage, setLatestMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [isCallActive, setIsCallActive] = useState(false);
-  const [feedbackData, setFeedbackData] = useState({
-    symptoms: "",
-    issue: "",
-    timeOfInjury: "",
-    presscribedSolution: "",
-    followUpRecommendation: "",
-    overallAssessment: 0,
-    date: new Date().toISOString(),
-  });
+  // const [feedbackData, setFeedbackData] = useState({
+  //   symptoms: "",
+  //   issue: "",
+  //   timeOfInjury: "",
+  //   presscribedSolution: "",
+  //   followUpRecommendation: "",
+  //   overallAssessment: 0,
+  //   date: new Date().toISOString(),
+  // });
 
   const clientRef = useRef(null);
 
@@ -62,6 +62,7 @@ const HospitalCall = () => {
             setLatestMessage(newMessage);
             setMessages((prev) => [...prev, newMessage]);
           }
+          console.log("Message received:", messages);
         };
 
         const onSpeechStart = () => setIsSpeaking(true);

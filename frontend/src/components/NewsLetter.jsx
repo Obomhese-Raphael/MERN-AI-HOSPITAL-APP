@@ -19,7 +19,7 @@ const Newsletter = () => {
     
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL_DEV}/api/newsletter`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/newsletter`,
         { email },
         {
           headers: {
