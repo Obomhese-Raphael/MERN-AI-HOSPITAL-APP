@@ -4,21 +4,23 @@ export const subscribeNewsletter = async (req, res) => {
   const { email } = req.body;
 
   try {
-    const existingSubscription = await Newsletter.findOne({ email });
-    if (existingSubscription) {
-      return res.status(409).json({
-        message: "This email is already subscribed.",
-      });
+    const existing = await Newsletter.findOne({ email });
+    if (existing) {
+      return res
+        .status(409)
+        .json({ message: "This email is already subscribed." });
     }
 
-    await Newsletter.create({ email });
-    res.status(201).json({
-      message: "Thank you for subscribing!",
-    });
+    const newSub = await Newsletter.create({ email });
+    console.log("✅ Successfully created newsletter sub:", newSub); // ← important
+
+    return res.status(201).json({ message: "Thank you for subscribing!" });
   } catch (error) {
-    console.error("Newsletter error:", error);
-    res.status(500).json({
+    console.error("Newsletter subscription FAILED:", error.message);
+    console.error(error.stack); // more detail
+    return res.status(500).json({
       message: "Subscription failed. Please try again.",
+      error: error.message, // ← temporarily expose for dev only!
     });
   }
 };

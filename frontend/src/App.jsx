@@ -12,7 +12,8 @@ import Services from "./pages/Services";
 import Loader from "./components/Loading";
 import HospitalCall from "./pages/HospitalCall";
 import MedicalFeedback from "./components/MedicalFeedback";
-import SummaryPage from "./pages/SummaryPage";
+// import SummaryPage from "./pages/SummaryPage";
+import CallSummary from "./pages/SummaryPage";
 
 const App = () => {
   const { user, isLoaded } = useUser();
@@ -39,7 +40,7 @@ const App = () => {
             element={user ? <HospitalCall /> : <Navigate to="/sign-in" />}
           />
           <Route path="/feedback/:callId" element={<MedicalFeedback />} />
-          <Route path="/hospital-call/:id/summary" element={<SummaryPage />} />
+          <Route path="/hospital-call/:id/summary" element={<CallSummary />} />
           <Route
             path="/sign-in/*"
             element={

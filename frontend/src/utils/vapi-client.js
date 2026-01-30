@@ -28,6 +28,7 @@ export const startCall = async (assistantId) => {
   try {
     const client = getVapiClient();
     const call = await client.start(assistantId);
+    console.log("Call Response in Start Call: ", call);
     return {
       callId: call.id,
       callObject: call,
@@ -54,21 +55,6 @@ export const stopCall = async () => {
     }
   } catch (error) {
     console.error("Call stop error:", error);
-    throw error;
-  }
-};
-
-export const getCallAnalysis = async (callId) => {
-  const client = getVapiClient();
-
-  console.log("CLIENT IN getCallAnalyis: ", client);
-  if (!client) throw new Error("Vapi client not initialized");
-
-  try {
-    const analysis = await client.getCallAnalysis(callId);
-    return analysis;
-  } catch (error) {
-    console.error("Error getting call analysis:", error);
     throw error;
   }
 };

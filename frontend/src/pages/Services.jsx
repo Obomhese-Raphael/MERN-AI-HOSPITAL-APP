@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { FaPhoneAlt, FaBrain, FaHeartbeat, FaShieldAlt } from "react-icons/fa";
 import {
-  initializeVapi,
   isCallActive,
   startCall,
-  stopCall,
 } from "../utils/vapi-client";
 import { useNavigate } from "react-router-dom";
 const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
@@ -17,8 +15,6 @@ const Services = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const client = initializeVapi(PUBLIC_KEY);
-
         // Check for existing active call
         if (isCallActive()) {
           setIsCalling(true);

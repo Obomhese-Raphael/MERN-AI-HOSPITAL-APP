@@ -3,7 +3,7 @@ import { FaPhoneSlash, FaPhone, FaHome } from "react-icons/fa";
 import assets from "../assets/assets";
 import { useUser } from "@clerk/clerk-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getCallAnalysis, getVapiClient, initializeVapi } from "../utils/vapi-client";
+import { getVapiClient, initializeVapi } from "../utils/vapi-client";
 
 const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
@@ -17,15 +17,7 @@ const HospitalCall = () => {
   const [latestMessage, setLatestMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [isCallActive, setIsCallActive] = useState(false);
-  // const [feedbackData, setFeedbackData] = useState({
-  //   symptoms: "",
-  //   issue: "",
-  //   timeOfInjury: "",
-  //   presscribedSolution: "",
-  //   followUpRecommendation: "",
-  //   overallAssessment: 0,
-  //   date: new Date().toISOString(),
-  // });
+  const [callId, setCallId] = useState(routeCallId);
 
   const clientRef = useRef(null);
 
@@ -35,25 +27,60 @@ const HospitalCall = () => {
         const client = initializeVapi(PUBLIC_KEY);
         clientRef.current = client;
 
+        // ✅ Capture call ID when call starts
         const handleCallStart = () => {
           setCallStatus("Consultation in Progress");
           setIsCallActive(true);
-        };
 
-        const handleCallEnd = () => {
-          setCallStatus("Consultation Ended");
-          setIsCallActive(false);
-          console.log("CLIENT REF IN HANDLECALL END: ", clientRef);
-          console.log("CLIENT IN HANDLECALL END: ", client);
-          if (clientRef.current?.call?.callClientId) {
-            fetchAndLogAnalysis(clientRef.current.call.callClientId);
-          } else if (routeCallId) {
-            fetchAndLogAnalysis(routeCallId);
+          // Try to get call ID immediately
+          const startCallId =
+            client.call?.id || client.call?.callId || client.call?.callClientId;
+          if (startCallId) {
+            console.log("✅ Call started with ID:", startCallId);
+            setCallId(startCallId);
           } else {
-            console.warn("No call ID available to fetch analysis.");
+            console.warn("⚠️ Call started but no ID found yet");
           }
         };
 
+        // ✅ Navigate to summary when call ends
+        const handleCallEnd = () => {
+          setCallStatus("Consultation Ended");
+          setIsCallActive(false);
+
+          console.log("📞 Call ended");
+          console.log("Client ref:", clientRef.current);
+          console.log("Call object:", clientRef.current?.call);
+
+          // Try multiple ways to get call ID
+          const finalCallId =
+            clientRef.current?.call?.id ||
+            clientRef.current?.call?.callId ||
+            clientRef.current?.call?.callClientId ||
+            callId ||
+            routeCallId;
+
+          console.log("Messages: ", messages);
+          console.log("Final Call ID:", finalCallId);
+
+          if (finalCallId) {
+            // Navigate to summary page
+            setTimeout(() => {
+              console.log(
+                `🔄 Navigating to: /hospital-call/${finalCallId}/summary`,
+              );
+              navigate(`/hospital-call/${finalCallId}/summary`);
+            }, 1000);
+          } else {
+            console.error("❌ No call ID found - cannot navigate to summary");
+            // Fallback to home
+            setTimeout(() => {
+              navigate("/");
+            }, 1000);
+          }
+        };
+
+        // ✅ Handle Messages/Transcripts
         const handleMessage = (msg) => {
           if (msg.type === "transcript" && msg.transcriptType === "final") {
             const newMessage = `${msg.role === "user" ? "You" : "Doctor"}: ${
@@ -62,18 +89,24 @@ const HospitalCall = () => {
             setLatestMessage(newMessage);
             setMessages((prev) => [...prev, newMessage]);
           }
-          console.log("Message received:", messages);
         };
 
         const onSpeechStart = () => setIsSpeaking(true);
         const onSpeechEnd = () => setIsSpeaking(false);
 
+        // ✅ Register all Event listeners
         if (client) {
           client.on("call-start", handleCallStart);
           client.on("call-end", handleCallEnd);
           client.on("message", handleMessage);
           client.on("speech-start", onSpeechStart);
           client.on("speech-end", onSpeechEnd);
+
+          // ✅ Add error handler
+          client.on("error", (error) => {
+            console.error("VAPI Error: ", error);
+            setCallStatus("Error occured");
+          });
         }
       } catch (error) {
         console.error("VAPI initialization error:", error);
@@ -90,41 +123,18 @@ const HospitalCall = () => {
     };
   }, [navigate, routeCallId]);
 
-  const fetchAndLogAnalysis = async () => {
-    try {
-      const analysis = await getCallAnalysis(callId);
-      console.log("Call Analysis Summary: ", analysis);
-    } catch (error) {
-      console.log("Error fetching call analysis: ", error);
-    }
-  };
-
   const startCall = async () => {
     try {
       setCallStatus("Connecting...");
       const client = getVapiClient();
+
       const assistantConfig = {
         assistantId: ASSISTANT_ID,
-        analysis: {
-          summaryPrompt:
-            "You are a medical assistant. Summarize this consultation including symptoms discussed, potential diagnoses, and recommendations.",
-          structuredDataSchema: {
-            type: "object",
-            properties: {
-              symptoms: { type: "string" },
-              diagnoses: { type: "string" },
-              recommendations: { type: "string" },
-              followUpRequired: { type: "boolean" },
-            },
-            required: ["symptoms", "recommendations"],
-          },
-          successEvaluationPrompt:
-            "Evaluate this medical consultation on: 1) Symptom understanding 2) Appropriate advice 3) Clarity 4) Next steps",
-          successEvaluationRubric: "DescriptiveScale",
-        },
       };
 
       const call = await client.start(assistantConfig);
+      console.log("Call Started: ", call);
+
       return call;
     } catch (error) {
       console.error("Call start failed:", error);
@@ -136,7 +146,6 @@ const HospitalCall = () => {
     try {
       setCallStatus("Ending call...");
       const client = clientRef.current;
-      console.log("CLIENT IN END CALL :", client);
 
       if (!client) {
         console.error("No VAPI client instance found");
@@ -144,40 +153,33 @@ const HospitalCall = () => {
         return;
       }
 
-      // Capture callId before ending the Call
-      const callId = client?.call?.callClientId;
-      const callDetails = client?.call;
+      console.log("Ending call...");
+      console.log("Client:", client);
+      console.log("Call details:", client.call);
 
-      if (callDetails) {
-        console.log("CALL DETAILS: ", callDetails);
+      // ✅ Capture call ID BEFORE stopping
+      const currentCallId =
+        client.call?.id ||
+        client.call?.callId ||
+        client.call?.callClientId ||
+        callId;
+
+      if (currentCallId) {
+        console.log("✅ Captured call ID before ending:", currentCallId);
+        setCallId(currentCallId);
       }
 
-      // Try all possible ways to end the call
+      // ✅ Stop the call
       if (typeof client.stop === "function") {
         await client.stop();
       } else if (typeof client.end === "function") {
         await client.end();
-      } else if (client.call?.stop) {
-        await client.call.stop();
-      } else if (client.call?.end) {
-        await client.call.end();
       } else {
         console.warn("No valid stop method found on client");
       }
 
       setIsCallActive(false);
       setCallStatus("Call ended");
-
-      if (callId) {
-        setTimeout(() => {
-          navigate(`/hospital-call/${callId}/summary`);
-        }, 1500);
-      } else {
-        console.warn(
-          "No call ID was captured before ending call for navigation"
-        );
-        navigate("/consultation-summary");
-      }
     } catch (error) {
       console.error("Error ending call:", error);
       setCallStatus("Error ending call");
