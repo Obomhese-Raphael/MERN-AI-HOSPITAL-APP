@@ -5,7 +5,6 @@ import {
   startCall,
 } from "../utils/vapi-client";
 import { useNavigate } from "react-router-dom";
-const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
 const Services = () => {
   const [isCalling, setIsCalling] = useState(false);
