@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { FaPhoneAlt, FaBrain, FaHeartbeat, FaShieldAlt } from "react-icons/fa";
-import {
-  isCallActive,
-  startCall,
-} from "../utils/vapi-client";
+import { isCallActive } from "../utils/vapi-client";
 import { useNavigate } from "react-router-dom";
-const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
+
 const Services = () => {
   const [isCalling, setIsCalling] = useState(false);
   const [callStatus, setCallStatus] = useState("");
@@ -28,29 +25,10 @@ const Services = () => {
     init();
   }, []);
 
-  const handleCallClick = async () => {
-    try {
-      setIsCalling(true);
-      setCallStatus("Connecting to AI Doctor...");
-
-      const { callId } = await startCall(ASSISTANT_ID);
-      setCallStatus("Connected! Redirecting...");
-
-      // Navigate to the call page after a brief delay for UX
-      setTimeout(() => {
-        navigate(`/hospital-call/${callId}`);
-      }, 1000); // 1 second delay to show the "Connected" message
-    } catch (error) {
-      let errorMsg = "Failed to connect. Please try again.";
-      if (error.message.includes("Unauthorized") || error.status === 401) {
-        errorMsg = "Authentication failed. Please check your API keys.";
-      } else if (error.message.includes("No callId")) {
-        errorMsg = "Connection established but failed to start call session.";
-      }
-      setCallStatus(errorMsg);
-      setIsCalling(false);
-    }
+  const handleCallClick = () => {
+    navigate("/hospital-call/new");
   };
+
   return (
     <section className="py-16 bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100">
       <div className="container mx-auto text-center">

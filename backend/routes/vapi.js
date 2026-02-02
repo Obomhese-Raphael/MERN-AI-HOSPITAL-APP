@@ -1,11 +1,11 @@
 import express from "express";
 import { VapiClient } from "@vapi-ai/server-sdk";
 
-const vapiRoute = express.Router(); 
+const vapiRoute = express.Router();
 
 // ✅ Check if API key exists
 if (!process.env.VAPI_PRIVATE_KEY) {
-  console.error('❌ VAPI_PRIVATE_KEY is not set in environment variables!');
+  console.error("❌ VAPI_PRIVATE_KEY is not set in environment variables!");
 }
 
 const vapi = new VapiClient({
@@ -14,9 +14,9 @@ const vapi = new VapiClient({
 
 // ✅ Test route
 vapiRoute.get("/test", (req, res) => {
-  res.json({ 
+  res.json({
     message: "VAPI routes are working!",
-    hasApiKey: !!process.env.VAPI_PRIVATE_KEY 
+    hasApiKey: !!process.env.VAPI_PRIVATE_KEY,
   });
 });
 
@@ -27,26 +27,28 @@ vapiRoute.get("/debug/:testId", (req, res) => {
   res.json({
     message: "Debug route works",
     receivedParam: req.params.testId,
-    fullUrl: req.originalUrl
+    fullUrl: req.originalUrl,
   });
 });
 
 vapiRoute.get("/call/:callId", async (req, res) => {
   const { callId } = req.params;
 
-  console.log("Received callId:", callId);
-
-  // TEMP TEST: force a known good ID from dashboard
-  const testId = "019c1f8a-0cc3-7002-9f51-e1d40b86e676"; // ← your ID
+  if (!callId) {
+    return res.status(400).json({ error: "Missing callId" });
+  }
 
   try {
-    console.log("Trying to fetch with forced ID:", testId);
-    const call = await vapi.calls.get(testId);  // ← use testId here
+    const call = await vapi.calls.get(callId);
+    console.log("CALL FROM VAPI.JS: ", call);
     res.json(call);
   } catch (error) {
-    console.error("Forced fetch error:", error);
-    res.status(500).json({ error: error.message, attemptedId: testId });
+    console.error("VAPI fetch failed:", error);
+    res.status(error.statusCode || 500).json({
+      error: error.body?.message || error.message,
+      callId,
+    });
   }
 });
 
-export default vapiRoute; 
+export default vapiRoute;

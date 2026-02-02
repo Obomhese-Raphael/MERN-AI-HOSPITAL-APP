@@ -9,6 +9,8 @@ const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
 
 const HospitalCall = () => {
+  const isNewCall = routeCallId === "new";
+
   const { callId: routeCallId } = useParams(); // Get callId from the route
   const navigate = useNavigate();
   const user = useUser();
@@ -45,10 +47,11 @@ const HospitalCall = () => {
           setCallStatus("Consultation in Progress");
           setIsCallActive(true);
 
-          const startCallId = client.call?.id || client.call?.callClientId;
-          if (startCallId) {
-            console.log("✅ Call started – ID:", startCallId);
-            setCallId(startCallId);
+          const realCallId = client.call?.id;
+
+          if (realCallId) {
+            console.log("✅ REAL VAPI CALL ID:", realCallId);
+            setCallId(realCallId);
           }
         };
 
@@ -56,23 +59,12 @@ const HospitalCall = () => {
           setCallStatus("Consultation Ended");
           setIsCallActive(false);
 
-          const finalCallId =
-            clientRef.current?.call?.id ||
-            clientRef.current?.call?.callClientId ||
-            callId ||
-            routeCallId;
+          const realCallId = clientRef.current?.call?.id;
 
-          console.log("📞 Call ended | Final ID:", finalCallId);
+          console.log("📞 Call ended | ID:", realCallId);
 
-          if (finalCallId && finalCallId !== "undefined") {
-            setTimeout(() => {
-              console.log(
-                `🔄 Navigating: /hospital-call/${finalCallId}/summary`,
-              );
-              navigate(`/hospital-call/${finalCallId}/summary`, {
-                replace: true,
-              });
-            }, 800);
+          if (realCallId) {
+            navigate(`/hospital-call/${realCallId}/summary`, { replace: true });
           } else {
             navigate("/", { replace: true });
           }
@@ -117,6 +109,11 @@ const HospitalCall = () => {
     };
 
     initVapi();
+
+    if (isNewCall) {
+      console.log("🆕 Starting new call...");
+      startCall();
+    }
 
     return () => {
       const client = clientRef.current;

@@ -24,20 +24,32 @@ export const isCallActive = () => {
   ); // Alternative property
 };
 
+// export const startCall = async (assistantId) => {
+//   try {
+//     const client = getVapiClient();
+//     const call = await client.start(assistantId);
+//     console.log("Call Response in Start Call: ", call);
+//     return {
+//       callId: call.id,
+//       callObject: call,
+//       status: call.status,
+//     };
+//   } catch (error) {
+//     console.error("Call start failed:", error);
+//     throw error;
+//   }
+// };
+
 export const startCall = async (assistantId) => {
-  try {
-    const client = getVapiClient();
-    const call = await client.start(assistantId);
-    console.log("Call Response in Start Call: ", call);
-    return {
-      callId: call.id,
-      callObject: call,
-      status: call.status,
-    };
-  } catch (error) {
-    console.error("Call start failed:", error);
-    throw error;
-  }
+  const client = getVapiClient();
+
+  const call = await client.start({
+    assistantId,
+  });
+
+  console.log("✅ Call started:", call);
+
+  return call;
 };
 
 export const stopCall = async () => {
