@@ -1,7 +1,7 @@
 import express from "express";
 import { VapiClient } from "@vapi-ai/server-sdk";
 
-const vapiRoute = express.Router();
+const vapiRoute = express.Router(); 
 
 // ✅ Check if API key exists
 if (!process.env.VAPI_PRIVATE_KEY) {
