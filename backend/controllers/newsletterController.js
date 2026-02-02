@@ -2,7 +2,7 @@ import Newsletter from "../models/NewsletterModel.js";
 
 export const subscribeNewsletter = async (req, res) => {
   const { email } = req.body;
-
+ 
   try {
     const existing = await Newsletter.findOne({ email });
     if (existing) {
