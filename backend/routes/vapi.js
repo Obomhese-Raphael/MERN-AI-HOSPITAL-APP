@@ -67,29 +67,47 @@ vapiRoute.get("/debug/:testId", (req, res) => {
 //   }
 // });
 
+// vapiRoute.get("/call/:callId", async (req, res) => {
+//   const callId = req.params.callId;
+
+//   console.log("=== VAPI CALL ROUTE HIT ===");
+//   console.log("Raw req.params:", req.params);
+//   console.log("Extracted callId:", callId);
+//   console.log("Original URL:", req.originalUrl);
+//   console.log("Full request path:", req.path);
+//   console.log("VAPI_PRIVATE_KEY length:", process.env.VAPI_PRIVATE_KEY?.length || "MISSING");
+
+//   if (!callId) {
+//     return res.status(400).json({ 
+//       error: "No callId received in params",
+//       debug: { params: req.params, url: req.originalUrl }
+//     });
+//   }
+
+//   try {
+//     const call = await vapi.calls.get(callId);
+//     res.json(call);
+//   } catch (error) {
+//     console.error("VAPI ERROR:", error);
+//     res.status(500).json({ error: error.message, callIdUsed: callId });
+//   }
+// });
+
 vapiRoute.get("/call/:callId", async (req, res) => {
-  const callId = req.params.callId;
+  const { callId } = req.params;
 
-  console.log("=== VAPI CALL ROUTE HIT ===");
-  console.log("Raw req.params:", req.params);
-  console.log("Extracted callId:", callId);
-  console.log("Original URL:", req.originalUrl);
-  console.log("Full request path:", req.path);
-  console.log("VAPI_PRIVATE_KEY length:", process.env.VAPI_PRIVATE_KEY?.length || "MISSING");
+  console.log("Received callId:", callId);
 
-  if (!callId) {
-    return res.status(400).json({ 
-      error: "No callId received in params",
-      debug: { params: req.params, url: req.originalUrl }
-    });
-  }
+  // TEMP TEST: force a known good ID from dashboard
+  const testId = "019c1f8a-0cc3-7002-9f51-e1d40b86e676"; // ← your ID
 
   try {
-    const call = await vapi.calls.get(callId);
+    console.log("Trying to fetch with forced ID:", testId);
+    const call = await vapi.calls.get(testId);  // ← use testId here
     res.json(call);
   } catch (error) {
-    console.error("VAPI ERROR:", error);
-    res.status(500).json({ error: error.message, callIdUsed: callId });
+    console.error("Forced fetch error:", error);
+    res.status(500).json({ error: error.message, attemptedId: testId });
   }
 });
 
