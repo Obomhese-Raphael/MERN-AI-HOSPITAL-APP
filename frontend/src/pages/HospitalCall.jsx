@@ -15,113 +15,129 @@ const HospitalCall = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState("Ready to start consultation");
   const [latestMessage, setLatestMessage] = useState("");
-  const [messages, setMessages] = useState([]);
+  // const [messages, setMessages] = useState([]);
   const [isCallActive, setIsCallActive] = useState(false);
   const [callId, setCallId] = useState(routeCallId);
 
   const clientRef = useRef(null);
+  const listenersRegistered = useRef(false); // ✅ Moved to top level (valid hook call)
 
   useEffect(() => {
+    let handleCallStartRef,
+      handleCallEndRef,
+      handleMessageRef,
+      onSpeechStartRef,
+      onSpeechEndRef,
+      onErrorRef;
+
     const initVapi = async () => {
       try {
         const client = initializeVapi(PUBLIC_KEY);
         clientRef.current = client;
 
-        // ✅ Capture call ID when call starts
-        const handleCallStart = () => {
+        if (listenersRegistered.current) {
+          console.log("[HospitalCall] Listeners already registered — skipping");
+          return;
+        }
+        listenersRegistered.current = true;
+
+        handleCallStartRef = () => {
           setCallStatus("Consultation in Progress");
           setIsCallActive(true);
 
-          // Try to get call ID immediately
-          const startCallId =
-            client.call?.id || client.call?.callId || client.call?.callClientId;
+          const startCallId = client.call?.id || client.call?.callClientId;
           if (startCallId) {
-            console.log("✅ Call started with ID:", startCallId);
+            console.log("✅ Call started – ID:", startCallId);
             setCallId(startCallId);
-          } else {
-            console.warn("⚠️ Call started but no ID found yet");
           }
         };
 
-        // ✅ Navigate to summary when call ends
-        const handleCallEnd = () => {
+        handleCallEndRef = () => {
           setCallStatus("Consultation Ended");
           setIsCallActive(false);
 
-          console.log("📞 Call ended");
-          console.log("Client ref:", clientRef.current);
-          console.log("Call object:", clientRef.current?.call);
-
-          // Try multiple ways to get call ID
           const finalCallId =
             clientRef.current?.call?.id ||
-            clientRef.current?.call?.callId ||
             clientRef.current?.call?.callClientId ||
             callId ||
             routeCallId;
 
-          console.log("Messages: ", messages);
-          console.log("Final Call ID:", finalCallId);
+          console.log("📞 Call ended | Final ID:", finalCallId);
 
-          if (finalCallId) {
-            // Navigate to summary page
+          if (finalCallId && finalCallId !== "undefined") {
             setTimeout(() => {
               console.log(
-                `🔄 Navigating to: /hospital-call/${finalCallId}/summary`,
+                `🔄 Navigating: /hospital-call/${finalCallId}/summary`,
               );
-              navigate(`/hospital-call/${finalCallId}/summary`);
-            }, 1000);
+              navigate(`/hospital-call/${finalCallId}/summary`, {
+                replace: true,
+              });
+            }, 800);
           } else {
-            console.error("❌ No call ID found - cannot navigate to summary");
-            // Fallback to home
-            setTimeout(() => {
-              navigate("/");
-            }, 1000);
+            navigate("/", { replace: true });
           }
         };
 
-        // ✅ Handle Messages/Transcripts
-        const handleMessage = (msg) => {
+        handleMessageRef = (msg) => {
           if (msg.type === "transcript" && msg.transcriptType === "final") {
-            const newMessage = `${msg.role === "user" ? "You" : "Doctor"}: ${
-              msg.transcript
-            }`;
-            setLatestMessage(newMessage);
-            setMessages((prev) => [...prev, newMessage]);
+            const speaker = msg.role === "user" ? "You" : "AI Doctor";
+            const text = msg.transcript || msg.text || "";
+            if (text.trim()) {
+              const newMsg = `${speaker}: ${text}`;
+              setLatestMessage(newMsg);
+              // setMessages((prev) => [...prev, newMsg]);
+            }
           }
         };
 
-        const onSpeechStart = () => setIsSpeaking(true);
-        const onSpeechEnd = () => setIsSpeaking(false);
+        onSpeechStartRef = () => setIsSpeaking(true);
+        onSpeechEndRef = () => setIsSpeaking(false);
 
-        // ✅ Register all Event listeners
-        if (client) {
-          client.on("call-start", handleCallStart);
-          client.on("call-end", handleCallEnd);
-          client.on("message", handleMessage);
-          client.on("speech-start", onSpeechStart);
-          client.on("speech-end", onSpeechEnd);
+        onErrorRef = (error) => {
+          console.error("Vapi error:", error);
+          if (error?.errorMsg?.includes("Meeting has ended")) {
+            console.log("Expected end-of-call socket close — ignoring");
+            return;
+          }
+          setCallStatus("Call error occurred");
+        };
 
-          // ✅ Add error handler
-          client.on("error", (error) => {
-            console.error("VAPI Error: ", error);
-            setCallStatus("Error occured");
-          });
-        }
-      } catch (error) {
-        console.error("VAPI initialization error:", error);
-        setCallStatus("Failed to initialize voice assistant");
+        client.on("call-start", handleCallStartRef);
+        client.on("call-end", handleCallEndRef);
+        client.on("message", handleMessageRef);
+        client.on("speech-start", onSpeechStartRef);
+        client.on("speech-end", onSpeechEndRef);
+        client.on("error", onErrorRef);
+
+        console.log("[HospitalCall] Listeners attached");
+      } catch (err) {
+        console.error("Vapi init failed:", err);
+        setCallStatus("Voice connection failed");
       }
     };
 
     initVapi();
 
     return () => {
-      if (clientRef.current?.call?.status === "active") {
-        clientRef.current.stop().catch(console.error);
+      const client = clientRef.current;
+      if (!client) return;
+
+      // Remove using the SAME function references
+      if (handleCallStartRef) client.off("call-start", handleCallStartRef);
+      if (handleCallEndRef) client.off("call-end", handleCallEndRef);
+      if (handleMessageRef) client.off("message", handleMessageRef);
+      if (onSpeechStartRef) client.off("speech-start", onSpeechStartRef);
+      if (onSpeechEndRef) client.off("speech-end", onSpeechEndRef);
+      if (onErrorRef) client.off("error", onErrorRef);
+
+      listenersRegistered.current = false;
+
+      if (client.call?.status === "active") {
+        console.log("Stopping active call on unmount");
+        client.stop().catch(console.warn);
       }
     };
-  }, [navigate, routeCallId]);
+  }, []); // empty deps — run once; // ← IMPORTANT: empty dependency array = run once on mount
 
   const startCall = async () => {
     try {
@@ -187,14 +203,9 @@ const HospitalCall = () => {
     }
   };
 
-  // Cleanup effect
-  useEffect(() => {
-    return () => {
-      if (clientRef.current?.call?.status === "active") {
-        clientRef.current.stop().catch(console.error);
-      }
-    };
-  }, []);
+  // ────────────────────────────────────────────────
+  //  Removed redundant cleanup useEffect (handled in the main useEffect above)
+  // ────────────────────────────────────────────────
 
   if (callStatus.includes("Failed") || callStatus.includes("Error")) {
     return (
