@@ -40,7 +40,10 @@ const App = () => {
             element={user ? <HospitalCall /> : <Navigate to="/sign-in" />}
           />
           <Route path="/feedback/:callId" element={<MedicalFeedback />} />
-          <Route path="/hospital-call/:id/summary" element={<CallSummary />} />
+          <Route
+            path="/hospital-call/:callId/summary"
+            element={<CallSummary />}
+          />
           <Route
             path="/sign-in/*"
             element={

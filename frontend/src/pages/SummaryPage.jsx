@@ -1,27 +1,27 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
 import axios from "axios";
+import { isUuidV4 } from "../utils/vapi-client";
 
 const CallSummary = () => {
   const location = useLocation();
 
-  console.log("Location in Summary Page", location.pathname); // e.g., "/hospital-call/123"
-  const { id: callId } = useParams();
+  console.log("Location in Summary Page", location.pathname);
+  const { callId } = useParams();
   console.log("Call Params in Summary Page: ", callId);
   const [callData, setCallData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!callId || callId === "undefined" || callId.length < 30) {
-      // rough UUID check
+    if (!isUuidV4(callId)) {
       setError(
-        "Invalid or missing call ID. The consultation may not have started properly.",
+        "Invalid or missing call ID (must be a UUID v4). The consultation may not have started properly.",
       );
       setLoading(false);
       return;
     }
-    
+
     const fetchSummary = async () => {
       try {
         const fullUrl = `${import.meta.env.VITE_API_BASE_URL}/api/vapi/call/${callId}`;

@@ -31,11 +31,25 @@ vapiRoute.get("/debug/:testId", (req, res) => {
   });
 });
 
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isUuidV4 = (value) =>
+  typeof value === "string" && UUID_V4_REGEX.test(value);
+
 vapiRoute.get("/call/:callId", async (req, res) => {
   const { callId } = req.params;
 
   if (!callId) {
     return res.status(400).json({ error: "Missing callId" });
+  }
+
+  // Defensive: never forward bad IDs to VAPI
+  if (!isUuidV4(callId)) {
+    return res.status(400).json({
+      error: "Invalid callId (must be a UUID v4)",
+      callId,
+    });
   }
 
   try {

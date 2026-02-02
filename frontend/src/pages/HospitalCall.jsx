@@ -3,15 +3,15 @@ import { FaPhoneSlash, FaPhone, FaHome } from "react-icons/fa";
 import assets from "../assets/assets";
 import { useUser } from "@clerk/clerk-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getVapiClient, initializeVapi } from "../utils/vapi-client";
+import { getVapiClient, initializeVapi, isUuidV4 } from "../utils/vapi-client";
 
 const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
 
 const HospitalCall = () => {
+  const { callId: routeCallId } = useParams(); // "new" or a UUID
   const isNewCall = routeCallId === "new";
 
-  const { callId: routeCallId } = useParams(); // Get callId from the route
   const navigate = useNavigate();
   const user = useUser();
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -19,9 +19,13 @@ const HospitalCall = () => {
   const [latestMessage, setLatestMessage] = useState("");
   // const [messages, setMessages] = useState([]);
   const [isCallActive, setIsCallActive] = useState(false);
-  const [callId, setCallId] = useState(routeCallId);
+  const [callId, setCallId] = useState(() =>
+    isUuidV4(routeCallId) ? routeCallId : null,
+  );
 
   const clientRef = useRef(null);
+  const callIdRef = useRef(null);
+  const callStartRequested = useRef(false);
   const listenersRegistered = useRef(false); // ✅ Moved to top level (valid hook call)
 
   useEffect(() => {
@@ -49,9 +53,14 @@ const HospitalCall = () => {
 
           const realCallId = client.call?.id;
 
-          if (realCallId) {
+          if (isUuidV4(realCallId)) {
             console.log("✅ REAL VAPI CALL ID:", realCallId);
+            callIdRef.current = realCallId;
             setCallId(realCallId);
+          } else {
+            console.warn("[HospitalCall] call-start fired but call.id is not a UUID v4", {
+              realCallId,
+            });
           }
         };
 
@@ -59,13 +68,20 @@ const HospitalCall = () => {
           setCallStatus("Consultation Ended");
           setIsCallActive(false);
 
-          const realCallId = clientRef.current?.call?.id;
+          // When the call ends, some SDK versions clear `client.call`.
+          // Keep our own source-of-truth in a ref.
+          const endedCallId = callIdRef.current || clientRef.current?.call?.id;
 
-          console.log("📞 Call ended | ID:", realCallId);
+          console.log("📞 Call ended | ID:", endedCallId);
 
-          if (realCallId) {
-            navigate(`/hospital-call/${realCallId}/summary`, { replace: true });
+          callStartRequested.current = false;
+
+          if (isUuidV4(endedCallId)) {
+            navigate(`/hospital-call/${endedCallId}/summary`, { replace: true });
           } else {
+            console.warn("[HospitalCall] Not navigating to summary - invalid call id", {
+              endedCallId,
+            });
             navigate("/", { replace: true });
           }
         };
@@ -137,6 +153,13 @@ const HospitalCall = () => {
   }, []); // empty deps — run once; // ← IMPORTANT: empty dependency array = run once on mount
 
   const startCall = async () => {
+    if (callStartRequested.current) {
+      console.log("[HospitalCall] startCall already requested - skipping");
+      return;
+    }
+
+    callStartRequested.current = true;
+
     try {
       setCallStatus("Connecting...");
       const client = getVapiClient();
@@ -148,8 +171,15 @@ const HospitalCall = () => {
       const call = await client.start(assistantConfig);
       console.log("Call Started: ", call);
 
+      const realCallId = call?.id;
+      if (isUuidV4(realCallId)) {
+        callIdRef.current = realCallId;
+        setCallId(realCallId);
+      }
+
       return call;
     } catch (error) {
+      callStartRequested.current = false;
       console.error("Call start failed:", error);
       throw error;
     }
@@ -171,14 +201,11 @@ const HospitalCall = () => {
       console.log("Call details:", client.call);
 
       // ✅ Capture call ID BEFORE stopping
-      const currentCallId =
-        client.call?.id ||
-        client.call?.callId ||
-        client.call?.callClientId ||
-        callId;
+      const currentCallId = callIdRef.current || client.call?.id;
 
-      if (currentCallId) {
+      if (isUuidV4(currentCallId)) {
         console.log("✅ Captured call ID before ending:", currentCallId);
+        callIdRef.current = currentCallId;
         setCallId(currentCallId);
       }
 

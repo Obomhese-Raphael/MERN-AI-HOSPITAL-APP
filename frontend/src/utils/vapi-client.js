@@ -1,5 +1,11 @@
 import Vapi from "@vapi-ai/web";
 
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const isUuidV4 = (value) =>
+  typeof value === "string" && UUID_V4_REGEX.test(value);
+
 let vapiClient = null;
 
 export const initializeVapi = (publicKey) => {
@@ -39,37 +45,6 @@ export const isCallActive = () => {
 //     throw error;
 //   }
 // };
-
-export const startCall = async (assistantId) => {
-  const client = getVapiClient();
-
-  const call = await client.start({
-    assistantId,
-  });
-
-  console.log("✅ Call started:", call);
-
-  return call;
-};
-
-export const stopCall = async () => {
-  const client = getVapiClient();
-  if (!client) return;
-
-  try {
-    // Try different stop methods for compatibility
-    if (typeof client.stop === "function") {
-      await client.stop();
-    } else if (typeof client.end === "function") {
-      await client.end();
-    } else if (client.call?.end) {
-      await client.call.end();
-    }
-  } catch (error) {
-    console.error("Call stop error:", error);
-    throw error;
-  }
-};
 
 export const getVapiClient = () => {
   if (!vapiClient) {
