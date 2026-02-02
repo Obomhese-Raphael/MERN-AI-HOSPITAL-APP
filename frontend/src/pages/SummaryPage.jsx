@@ -21,16 +21,34 @@ const CallSummary = () => {
       setLoading(false);
       return;
     }
-
+    
     const fetchSummary = async () => {
       try {
-        console.log(`Fetching summary for call ID: ${callId}`);
-        const res = await axios.get(
-          `${import.meta.env.VITE_API_BASE_URL}/api/vapi/call/${callId}`,
-        );
+        const fullUrl = `${import.meta.env.VITE_API_BASE_URL}/api/vapi/call/${callId}`;
+        console.log("Frontend: Sending request to:", fullUrl); // ← add this
+
+        const res = await axios.get(fullUrl);
+
+        console.log("Frontend: Raw backend response:", res.data); // ← add this (shows full JSON)
+        console.log("Frontend: Status code:", res.status); // ← add this
+
         setCallData(res.data);
       } catch (err) {
-        console.error("Summary fetch failed:", err);
+        console.error("Frontend: Summary fetch failed:", err);
+
+        // ← Add this block to see detailed error response
+        if (err.response) {
+          console.log("Backend error response:", {
+            status: err.response.status,
+            data: err.response.data,
+            headers: err.response.headers,
+          });
+        } else if (err.request) {
+          console.log("No response received from backend:", err.request);
+        } else {
+          console.log("Axios setup error:", err.message);
+        }
+
         setError(
           err.response?.data?.error ||
             "Could not load summary. The call analysis might still be processing.",
