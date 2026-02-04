@@ -22,7 +22,7 @@ const CallHistory = () => {
       const privateKey = import.meta.env.VITE_VAPI_PRIVATE_KEY;
       if (!privateKey) {
         throw new Error("VAPI_PRIVATE_KEY not set in .env");
-      }
+      } 
 
       const params = { limit: 20 };
       if (isLoadMore && lastCursor) {
