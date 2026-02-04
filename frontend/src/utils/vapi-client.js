@@ -1,11 +1,17 @@
 import Vapi from "@vapi-ai/web";
 
 // ✅ Updated regex to accept BOTH UUID v4 and v7 (VAPI uses v7)
-const UUID_V4_V7_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// const UUID_V4_V7_REGEX =
+//   /^[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// export const isUuidV4 = (value) =>
+//   typeof value === "string" && UUID_V4_V7_REGEX.test(value);
+
+// A more inclusive UUID regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const isUuidV4 = (value) =>
-  typeof value === "string" && UUID_V4_V7_REGEX.test(value);
+  typeof value === "string" && UUID_REGEX.test(value.trim());
 
 let vapiClient = null;
 
@@ -35,7 +41,6 @@ export const startCall = async (assistantId) => {
   try {
     const client = getVapiClient();
     const call = await client.start(assistantId);
-    console.log("Call Response in Start Call: ", call);
     return {
       callId: call.id,
       callObject: call,

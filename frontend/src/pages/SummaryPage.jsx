@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useLocation } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { isUuidV4 } from "../utils/vapi-client";
 
 const CallSummary = () => {
-  const location = useLocation();
   const { callId } = useParams();
 
   const [callData, setCallData] = useState(null);
@@ -11,11 +10,6 @@ const CallSummary = () => {
   const [error, setError] = useState(null);
 
   const VAPI_PRIVATE_KEY = import.meta.env.VITE_VAPI_PRIVATE_KEY;
-
-  console.log("=== CallSummary Debug ===");
-  console.log("Location pathname:", location.pathname);
-  console.log("callId from useParams:", callId);
-  console.log("Is valid UUID?", isUuidV4(callId));
 
   useEffect(() => {
     const cleanCallId = callId?.trim();

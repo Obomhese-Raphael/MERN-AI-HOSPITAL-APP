@@ -21,9 +21,6 @@ vapiRoute.get("/test", (req, res) => {
 });
 
 vapiRoute.get("/debug/:testId", (req, res) => {
-  console.log("DEBUG ROUTE HIT!");
-  console.log("req.params:", req.params);
-  console.log("req.originalUrl:", req.originalUrl);
   res.json({
     message: "Debug route works",
     receivedParam: req.params.testId,

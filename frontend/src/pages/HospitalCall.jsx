@@ -10,7 +10,7 @@ const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
 const HospitalCall = () => {
   const { callId: routeCallId } = useParams(); // Get callId from the route
   const isNewCall = routeCallId === "new";
-  
+
   const navigate = useNavigate();
   const user = useUser();
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -43,39 +43,88 @@ const HospitalCall = () => {
         }
         listenersRegistered.current = true;
 
+        // This works but i am not redirected to the call summary page
+        // handleCallStartRef = () => {
+        //   setCallStatus("Consultation in Progress");
+        //   setIsCallActive(true);
+
+        //   const startCallId = client.call?.id || client.call?.callClientId;
+        //   if (startCallId) {
+        //     console.log("✅ Call started – ID:", startCallId);
+        //     setCallId(startCallId);
+        //     callIdRef.current = startCallId;
+        //   }
+        // };
+
         handleCallStartRef = () => {
           setCallStatus("Consultation in Progress");
           setIsCallActive(true);
 
-          const startCallId = client.call?.id || client.call?.callClientId;
-          if (startCallId) {
-            console.log("✅ Call started – ID:", startCallId);
-            setCallId(startCallId);
-            callIdRef.current = startCallId;
+          // ONLY update if we don't have a valid ID yet
+          if (!isUuidV4(callIdRef.current)) {
+            const incomingId = clientRef.current?.call?.id;
+            if (isUuidV4(incomingId)) {
+              callIdRef.current = incomingId;
+              setCallId(incomingId);
+            }
           }
         };
+
+        // This works but i am not being redirected to the summary page
+        // handleCallEndRef = () => {
+        //   setCallStatus("Consultation Ended");
+        //   setIsCallActive(false);
+
+        //   const finalCallId =
+        //     callIdRef.current ||
+        //     clientRef.current?.call?.id ||
+        //     clientRef.current?.call?.callClientId ||
+        //     callId;
+
+        //   console.log("📞 Call ended | Final ID:", finalCallId);
+
+        //   callStartRequested.current = false;
+
+        //   if (
+        //     finalCallId &&
+        //     finalCallId !== "undefined" &&
+        //     isUuidV4(finalCallId)
+        //   ) {
+        //     setTimeout(() => {
+        //       console.log(
+        //         `🔄 Navigating: /hospital-call/${finalCallId}/summary`,
+        //       );
+        //       navigate(`/hospital-call/${finalCallId}/summary`, {
+        //         replace: true,
+        //       });
+        //     }, 800);
+        //   } else {
+        //     console.warn(
+        //       "[HospitalCall] Not navigating - invalid call ID:",
+        //       finalCallId,
+        //     );
+        //     navigate("/", { replace: true });
+        //   }
+        // };
 
         handleCallEndRef = () => {
           setCallStatus("Consultation Ended");
           setIsCallActive(false);
 
+          // Priority: 1. Ref, 2. State, 3. Client Instance
           const finalCallId =
-            callIdRef.current ||
-            clientRef.current?.call?.id ||
-            clientRef.current?.call?.callClientId ||
-            callId;
+            callIdRef.current || callId || clientRef.current?.call?.id;
 
-          console.log("📞 Call ended | Final ID:", finalCallId);
+          console.log("📞 Final ID for Navigation:", finalCallId);
 
-          callStartRequested.current = false;
-
-          if (finalCallId && finalCallId !== "undefined" && isUuidV4(finalCallId)) {
+          if (isUuidV4(finalCallId)) {
             setTimeout(() => {
-              console.log(`🔄 Navigating: /hospital-call/${finalCallId}/summary`);
-              navigate(`/hospital-call/${finalCallId}/summary`, { replace: true });
+              navigate(`/hospital-call/${finalCallId}/summary`, {
+                replace: true,
+              });
             }, 800);
           } else {
-            console.warn("[HospitalCall] Not navigating - invalid call ID:", finalCallId);
+            console.warn("Invalid ID detected, redirecting home");
             navigate("/", { replace: true });
           }
         };
@@ -146,81 +195,126 @@ const HospitalCall = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // empty deps — run once on mount
 
-  const startCall = async () => {
-    if (callStartRequested.current) {
-      console.log("[HospitalCall] startCall already requested - skipping");
-      return;
-    }
+  // This works except i am not redirected to the summary page
+  // const startCall = async () => {
+  //   if (callStartRequested.current) {
+  //     console.log("[HospitalCall] startCall already requested - skipping");
+  //     return;
+  //   }
 
+  //   callStartRequested.current = true;
+
+  //   try {
+  //     setCallStatus("Connecting...");
+  //     const client = getVapiClient();
+
+  //     const assistantConfig = {
+  //       assistantId: ASSISTANT_ID,
+  //     };
+
+  //     const call = await client.start(assistantConfig);
+  //     console.log("Call Started: ", call);
+
+  //     const realCallId = call?.id;
+  //     if (isUuidV4(realCallId)) {
+  //       callIdRef.current = realCallId;
+  //       setCallId(realCallId);
+  //       console.log("✅ Stored call ID:", realCallId);
+  //     }
+
+  //     return call;
+  //   } catch (error) {
+  //     callStartRequested.current = false;
+  //     console.error("Call start failed:", error);
+  //     throw error;
+  //   }
+  // };
+  const startCall = async () => {
+    if (callStartRequested.current) return;
     callStartRequested.current = true;
 
     try {
       setCallStatus("Connecting...");
       const client = getVapiClient();
+      const call = await client.start({ assistantId: ASSISTANT_ID });
 
-      const assistantConfig = {
-        assistantId: ASSISTANT_ID,
-      };
-
-      const call = await client.start(assistantConfig);
-      console.log("Call Started: ", call);
-
+      // ✅ FORCE capture the ID immediately from the response
       const realCallId = call?.id;
+
       if (isUuidV4(realCallId)) {
+        console.log("✅ Vapi UUID Captured:", realCallId);
         callIdRef.current = realCallId;
         setCallId(realCallId);
-        console.log("✅ Stored call ID:", realCallId);
       }
-
       return call;
     } catch (error) {
       callStartRequested.current = false;
-      console.error("Call start failed:", error);
       throw error;
     }
   };
+
+  // This works but i am not being redirected to the call summary page
+  // const endCall = async () => {
+  //   try {
+  //     setCallStatus("Ending call...");
+  //     const client = clientRef.current;
+
+  //     if (!client) {
+  //       console.error("No VAPI client instance found");
+  //       setCallStatus("Error: No client instance");
+  //       return;
+  //     }
+
+  //     console.log("Ending call...");
+  //     console.log("Client:", client);
+  //     console.log("Call details:", client.call);
+
+  //     // ✅ Capture call ID BEFORE stopping
+  //     const currentCallId = callIdRef.current || client.call?.id;
+
+  //     if (isUuidV4(currentCallId)) {
+  //       console.log("✅ Captured call ID before ending:", currentCallId);
+  //       callIdRef.current = currentCallId;
+  //       setCallId(currentCallId);
+  //     } else {
+  //       console.warn("⚠️ Call ID not valid before ending:", currentCallId);
+  //     }
+
+  //     // ✅ Stop the call
+  //     if (typeof client.stop === "function") {
+  //       await client.stop();
+  //     } else if (typeof client.end === "function") {
+  //       await client.end();
+  //     } else {
+  //       console.warn("No valid stop method found on client");
+  //     }
+
+  //     setIsCallActive(false);
+  //     setCallStatus("Call ended");
+  //   } catch (error) {
+  //     console.error("Error ending call:", error);
+  //     setCallStatus("Error ending call");
+  //     setIsCallActive(false);
+  //   }
+  // };
 
   const endCall = async () => {
     try {
       setCallStatus("Ending call...");
       const client = clientRef.current;
+      if (!client) return;
 
-      if (!client) {
-        console.error("No VAPI client instance found");
-        setCallStatus("Error: No client instance");
-        return;
+      // Capture the ID, but ONLY if it's a valid UUID
+      const currentId = callIdRef.current || client.call?.id;
+
+      if (isUuidV4(currentId)) {
+        callIdRef.current = currentId;
       }
 
-      console.log("Ending call...");
-      console.log("Client:", client);
-      console.log("Call details:", client.call);
-
-      // ✅ Capture call ID BEFORE stopping
-      const currentCallId = callIdRef.current || client.call?.id;
-
-      if (isUuidV4(currentCallId)) {
-        console.log("✅ Captured call ID before ending:", currentCallId);
-        callIdRef.current = currentCallId;
-        setCallId(currentCallId);
-      } else {
-        console.warn("⚠️ Call ID not valid before ending:", currentCallId);
-      }
-
-      // ✅ Stop the call
-      if (typeof client.stop === "function") {
-        await client.stop();
-      } else if (typeof client.end === "function") {
-        await client.end();
-      } else {
-        console.warn("No valid stop method found on client");
-      }
-
+      await client.stop();
       setIsCallActive(false);
-      setCallStatus("Call ended");
     } catch (error) {
       console.error("Error ending call:", error);
-      setCallStatus("Error ending call");
-      setIsCallActive(false);
     }
   };
 
