@@ -52,17 +52,31 @@ vapiRoute.get("/call/:callId", async (req, res) => {
     });
   }
 
-  try {
-    const call = await vapi.calls.get(callId);
-    console.log("CALL FROM VAPI.JS: ", call);
-    res.json(call);
-  } catch (error) {
-    console.error("VAPI fetch failed:", error);
-    res.status(error.statusCode || 500).json({
-      error: error.body?.message || error.message,
-      callId,
-    });
-  }
+  // try {
+  //   const call = await vapi.calls.get(callId);
+  //   console.log("CALL FROM VAPI.JS: ", call);
+  //   res.json(call);
+  // } catch (error) {
+  //   console.error("VAPI fetch failed:", error);
+  //   res.status(error.statusCode || 500).json({
+  //     error: error.body?.message || error.message,
+  //     callId,
+  //   });
+  // }
+
+  // routes/vapi.js
+try {
+  const response = await axios.get(`https://api.vapi.ai/call/${callId}`, {
+    headers: { Authorization: `Bearer ${process.env.VAPI_PRIVATE_KEY}` },
+  });
+  res.json(response.data);
+} catch (error) {
+  console.error("Vapi proxy error:", error.response?.data || error.message);
+  res.status(error.response?.status || 500).json({
+    error: "Failed to fetch call",
+    details: error.response?.data?.message || error.message,
+  });
+}
 });
 
 export default vapiRoute;

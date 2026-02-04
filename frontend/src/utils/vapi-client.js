@@ -1,10 +1,11 @@
 import Vapi from "@vapi-ai/web";
 
-const UUID_V4_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// ✅ Updated regex to accept BOTH UUID v4 and v7 (VAPI uses v7)
+const UUID_V4_V7_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const isUuidV4 = (value) =>
-  typeof value === "string" && UUID_V4_REGEX.test(value);
+  typeof value === "string" && UUID_V4_V7_REGEX.test(value);
 
 let vapiClient = null;
 
@@ -30,21 +31,21 @@ export const isCallActive = () => {
   ); // Alternative property
 };
 
-// export const startCall = async (assistantId) => {
-//   try {
-//     const client = getVapiClient();
-//     const call = await client.start(assistantId);
-//     console.log("Call Response in Start Call: ", call);
-//     return {
-//       callId: call.id,
-//       callObject: call,
-//       status: call.status,
-//     };
-//   } catch (error) {
-//     console.error("Call start failed:", error);
-//     throw error;
-//   }
-// };
+export const startCall = async (assistantId) => {
+  try {
+    const client = getVapiClient();
+    const call = await client.start(assistantId);
+    console.log("Call Response in Start Call: ", call);
+    return {
+      callId: call.id,
+      callObject: call,
+      status: call.status,
+    };
+  } catch (error) {
+    console.error("Call start failed:", error);
+    throw error;
+  }
+};
 
 export const getVapiClient = () => {
   if (!vapiClient) {

@@ -14,7 +14,7 @@
   "type": "module",
   "dependencies": {
     "@vapi-ai/server-sdk": "^0.11.0",
-    "axios": "^1.8.4",
+    "axios": "^1.13.4",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -23,7 +23,8 @@
     "mongodb": "^6.15.0",
     "mongoose": "^8.13.2",
     "openai": "^4.95.0",
-    "svix": "^1.64.1"
+    "svix": "^1.64.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

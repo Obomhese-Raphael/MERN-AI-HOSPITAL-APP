@@ -21,7 +21,7 @@ app.use(
     origin: [
       "http://localhost:5173", // Vite dev server
       "http://localhost:5174", // Alternative port
-      "https://ai-hospital-app.vercel.app/", // Add your deployed frontend URL
+      "https://mern-ai-hospital-app-frontend-orm.vercel.app", // Add your deployed frontend URL
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // ✅ Added GET!
     allowedHeaders: ["Content-Type", "Authorization"],

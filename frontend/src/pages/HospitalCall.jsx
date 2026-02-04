@@ -7,26 +7,22 @@ import { getVapiClient, initializeVapi, isUuidV4 } from "../utils/vapi-client";
 
 const PUBLIC_KEY = import.meta.env.VITE_VAPI_PUBLIC_KEY;
 const ASSISTANT_ID = import.meta.env.VITE_VAPI_ASSISTANT_ID;
-
 const HospitalCall = () => {
-  const { callId: routeCallId } = useParams(); // "new" or a UUID
+  const { callId: routeCallId } = useParams(); // Get callId from the route
   const isNewCall = routeCallId === "new";
-
+  
   const navigate = useNavigate();
   const user = useUser();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState("Ready to start consultation");
   const [latestMessage, setLatestMessage] = useState("");
-  // const [messages, setMessages] = useState([]);
   const [isCallActive, setIsCallActive] = useState(false);
-  const [callId, setCallId] = useState(() =>
-    isUuidV4(routeCallId) ? routeCallId : null,
-  );
+  const [callId, setCallId] = useState(routeCallId);
 
   const clientRef = useRef(null);
   const callIdRef = useRef(null);
   const callStartRequested = useRef(false);
-  const listenersRegistered = useRef(false); // ✅ Moved to top level (valid hook call)
+  const listenersRegistered = useRef(false);
 
   useEffect(() => {
     let handleCallStartRef,
@@ -51,16 +47,11 @@ const HospitalCall = () => {
           setCallStatus("Consultation in Progress");
           setIsCallActive(true);
 
-          const realCallId = client.call?.id;
-
-          if (isUuidV4(realCallId)) {
-            console.log("✅ REAL VAPI CALL ID:", realCallId);
-            callIdRef.current = realCallId;
-            setCallId(realCallId);
-          } else {
-            console.warn("[HospitalCall] call-start fired but call.id is not a UUID v4", {
-              realCallId,
-            });
+          const startCallId = client.call?.id || client.call?.callClientId;
+          if (startCallId) {
+            console.log("✅ Call started – ID:", startCallId);
+            setCallId(startCallId);
+            callIdRef.current = startCallId;
           }
         };
 
@@ -68,20 +59,23 @@ const HospitalCall = () => {
           setCallStatus("Consultation Ended");
           setIsCallActive(false);
 
-          // When the call ends, some SDK versions clear `client.call`.
-          // Keep our own source-of-truth in a ref.
-          const endedCallId = callIdRef.current || clientRef.current?.call?.id;
+          const finalCallId =
+            callIdRef.current ||
+            clientRef.current?.call?.id ||
+            clientRef.current?.call?.callClientId ||
+            callId;
 
-          console.log("📞 Call ended | ID:", endedCallId);
+          console.log("📞 Call ended | Final ID:", finalCallId);
 
           callStartRequested.current = false;
 
-          if (isUuidV4(endedCallId)) {
-            navigate(`/hospital-call/${endedCallId}/summary`, { replace: true });
+          if (finalCallId && finalCallId !== "undefined" && isUuidV4(finalCallId)) {
+            setTimeout(() => {
+              console.log(`🔄 Navigating: /hospital-call/${finalCallId}/summary`);
+              navigate(`/hospital-call/${finalCallId}/summary`, { replace: true });
+            }, 800);
           } else {
-            console.warn("[HospitalCall] Not navigating to summary - invalid call id", {
-              endedCallId,
-            });
+            console.warn("[HospitalCall] Not navigating - invalid call ID:", finalCallId);
             navigate("/", { replace: true });
           }
         };
@@ -93,7 +87,6 @@ const HospitalCall = () => {
             if (text.trim()) {
               const newMsg = `${speaker}: ${text}`;
               setLatestMessage(newMsg);
-              // setMessages((prev) => [...prev, newMsg]);
             }
           }
         };
@@ -150,7 +143,8 @@ const HospitalCall = () => {
         client.stop().catch(console.warn);
       }
     };
-  }, []); // empty deps — run once; // ← IMPORTANT: empty dependency array = run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // empty deps — run once on mount
 
   const startCall = async () => {
     if (callStartRequested.current) {
@@ -175,6 +169,7 @@ const HospitalCall = () => {
       if (isUuidV4(realCallId)) {
         callIdRef.current = realCallId;
         setCallId(realCallId);
+        console.log("✅ Stored call ID:", realCallId);
       }
 
       return call;
@@ -207,6 +202,8 @@ const HospitalCall = () => {
         console.log("✅ Captured call ID before ending:", currentCallId);
         callIdRef.current = currentCallId;
         setCallId(currentCallId);
+      } else {
+        console.warn("⚠️ Call ID not valid before ending:", currentCallId);
       }
 
       // ✅ Stop the call
@@ -226,10 +223,6 @@ const HospitalCall = () => {
       setIsCallActive(false);
     }
   };
-
-  // ────────────────────────────────────────────────
-  //  Removed redundant cleanup useEffect (handled in the main useEffect above)
-  // ────────────────────────────────────────────────
 
   if (callStatus.includes("Failed") || callStatus.includes("Error")) {
     return (
