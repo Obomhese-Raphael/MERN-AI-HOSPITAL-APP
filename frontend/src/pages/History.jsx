@@ -9,7 +9,7 @@ const CallHistory = () => {
   const [activeTab, setActiveTab] = useState("All Calls");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState("Newest first");
-  const [lastCursor, setLastCursor] = useState(null); // For pagination (createdAtLt)
+  const [lastCursor, setLastCursor] = useState(null); // For pagination
   const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const CallHistory = () => {
       const privateKey = import.meta.env.VITE_VAPI_PRIVATE_KEY;
       if (!privateKey) {
         throw new Error("VAPI_PRIVATE_KEY not set in .env");
-      } 
+      }
 
       const params = { limit: 20 };
       if (isLoadMore && lastCursor) {
@@ -41,13 +41,12 @@ const CallHistory = () => {
       setCalls((prev) => (isLoadMore ? [...prev, ...newCalls] : newCalls));
 
       if (isLoadMore && newCalls.length > 0) {
-        // Smoothly slide to the top of the page
+        // Smoothly slide to the top of the page after loading more
         window.scrollTo({
           top: 0,
           behavior: "smooth",
         });
 
-        // Optional: Show a toast notification
         const toast = document.createElement("div");
         toast.className =
           "fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-opacity duration-300";
@@ -59,6 +58,7 @@ const CallHistory = () => {
           setTimeout(() => toast.remove(), 300);
         }, 2000);
       }
+
       if (newCalls.length > 0) {
         const oldestCall = newCalls[newCalls.length - 1];
         setLastCursor(oldestCall.createdAt);
@@ -81,15 +81,16 @@ const CallHistory = () => {
     Urgent: calls.filter(
       (call) =>
         call.endedReason?.includes("emergency") ||
-        call.endedReason?.includes("red-flag"),
+        call.artifact?.structuredOutputs?.[
+          Object.keys(call.artifact?.structuredOutputs || {})[0]
+        ]?.result?.urgency_level?.toLowerCase() === "urgent"
     ).length,
     "Follow-ups": calls.filter(
       (call) =>
-        call.transcript?.toLowerCase().includes("follow-up") || call.cost > 2, // Placeholder logic
+        call.transcript?.toLowerCase().includes("follow-up") || call.cost > 2
     ).length,
   };
 
-  // Filtered & Sorted Calls
   const getFilteredCalls = () => {
     let filtered = calls.filter((call) => {
       const matchesSearch =
@@ -103,14 +104,14 @@ const CallHistory = () => {
           return (
             (call.endedReason?.includes("emergency") ||
               call.artifact?.structuredOutputs?.[
-                Object.keys(call.artifact.structuredOutputs)[0]
+                Object.keys(call.artifact?.structuredOutputs || {})[0]
               ]?.result?.urgency_level?.toLowerCase() === "urgent") &&
             matchesSearch
           );
         case "Follow-ups":
           return (
             (call.transcript?.toLowerCase().includes("follow-up") ||
-              call.cost > 2) && // Placeholder
+              call.cost > 2) &&
             matchesSearch
           );
         default:
@@ -118,7 +119,6 @@ const CallHistory = () => {
       }
     });
 
-    // Sort
     filtered.sort((a, b) => {
       const dateA = new Date(a.startedAt);
       const dateB = new Date(b.startedAt);
@@ -149,9 +149,7 @@ const CallHistory = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-md p-8 max-w-md w-full text-center">
-          <h2 className="text-xl font-bold text-red-600 mb-4">
-            Error Loading History
-          </h2>
+          <h2 className="text-xl font-bold text-red-600 mb-4">Error Loading History</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => window.location.reload()}
@@ -165,12 +163,12 @@ const CallHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-6 md:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+          <div className="w-full lg:w-auto">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
               Consultation History
             </h1>
             <p className="text-sm text-gray-500 mt-2">
@@ -178,18 +176,19 @@ const CallHistory = () => {
               {calls[0] ? formatDate(calls[0].startedAt) : "N/A"}
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             <input
               type="text"
               placeholder="Search by ID or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+              className="border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 text-sm shadow-sm"
             />
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
-              className="border border-gray-300 rounded-lg px-4 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 rounded-xl px-5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm cursor-pointer"
             >
               <option>Newest first</option>
               <option>Oldest first</option>
@@ -197,21 +196,25 @@ const CallHistory = () => {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-gray-200 mb-8">
-          <nav className="flex space-x-8">
+        {/* Tabs - Mobile Responsive with horizontal scroll */}
+        <div className="border-b border-gray-200 mb-8 overflow-x-auto scrollbar-hide">
+          <nav className="flex space-x-4 md:space-x-8 min-w-max pb-1">
             {["All Calls", "Completed", "Urgent", "Follow-ups"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-4 px-1 font-medium text-sm border-b-2 transition-colors flex items-center gap-1.5 ${
+                className={`pb-4 px-1 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
                   activeTab === tab
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 {tab}
-                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full font-normal">
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                    activeTab === tab ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"
+                  }`}
+                >
                   {tabCounts[tab] || 0}
                 </span>
               </button>
@@ -219,89 +222,72 @@ const CallHistory = () => {
           </nav>
         </div>
 
-        {/* Call List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading ? (
+        {/* Call List Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {loading && !calls.length ? (
             [...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white border rounded-xl p-6 animate-pulse"
-              >
+              <div key={i} className="bg-white border rounded-xl p-6 animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
                 <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/3 mb-2"></div>
                 <div className="h-3 bg-gray-200 rounded w-2/3"></div>
               </div>
             ))
           ) : filteredCalls.length === 0 ? (
             <div className="col-span-full text-center py-16 text-gray-500 bg-white rounded-xl border">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">
-                No consultations found
-              </h3>
-              <p className="mt-1">
-                Try a different filter or start a new consultation.
-              </p>
+              <h3 className="text-lg font-medium text-gray-900">No consultations found</h3>
+              <p className="mt-1 text-sm text-gray-400">Try a different filter or search term.</p>
             </div>
           ) : (
             filteredCalls.map((call) => (
               <Link
                 key={call.id}
                 to={`/hospital-call/${call.id}/summary`}
-                data-call-card
-                className="block bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-blue-200 transition-all duration-200 group"
+                className="block bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-blue-200 transition-all duration-200 group"
               >
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-mono text-gray-500 truncate">
-                      {call.id.slice(0, 8)}...
+                    <span className="text-[10px] font-mono text-gray-400 truncate">
+                      {call.id.slice(0, 12)}
                     </span>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
                         call.status === "ended"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
+                          ? "bg-green-50 text-green-700 border border-green-100"
+                          : "bg-yellow-50 text-yellow-700 border border-yellow-100"
                       }`}
                     >
                       {call.status}
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                     {formatDate(call.startedAt)}
                   </h3>
 
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <p>
-                      <strong>Duration:</strong>{" "}
-                      {getDuration(call.startedAt, call.endedAt)}
-                    </p>
-                    <p>
-                      <strong>Cost:</strong> ${call.cost?.toFixed(4) || "N/A"}
-                    </p>
+                  <div className="space-y-2 text-xs text-gray-600 border-t pt-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400 font-medium">Duration</span>
+                      <span className="font-semibold">{getDuration(call.startedAt, call.endedAt)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400 font-medium">Cost</span>
+                      <span className="font-semibold text-gray-900">
+                        ${call.cost?.toFixed(3) || "0.000"}
+                      </span>
+                    </div>
                     {call.endedReason && (
-                      <p>
-                        <strong>Ended:</strong>{" "}
-                        {call.endedReason.replace(/-/g, " ")}
-                      </p>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400 font-medium">End Reason</span>
+                        <span className="text-gray-500 truncate ml-4 capitalize">
+                          {call.endedReason.replace(/-/g, " ")}
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex justify-end mt-4">
-                    <span className="inline-flex items-center text-blue-600 group-hover:text-blue-800 font-medium transition-colors">
-                      View Summary <span className="ml-2">→</span>
+                  <div className="flex justify-end pt-2">
+                    <span className="inline-flex items-center text-xs text-blue-600 group-hover:text-blue-800 font-bold transition-colors">
+                      VIEW SUMMARY <span className="ml-1.5">→</span>
                     </span>
                   </div>
                 </div>
@@ -310,14 +296,15 @@ const CallHistory = () => {
           )}
         </div>
 
-        {/* Load More */}
-        {hasMore && !loading && (
-          <div className="text-center mt-10">
+        {/* Load More Button */}
+        {hasMore && (
+          <div className="text-center mt-12 pb-8">
             <button
               onClick={() => fetchCalls(true)}
-              className="bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 transition font-medium"
+              disabled={loading}
+              className="bg-white border-2 border-blue-600 text-blue-600 px-10 py-3 rounded-full hover:bg-blue-600 hover:text-white transition-all font-bold text-sm shadow-sm disabled:opacity-50"
             >
-              Load More
+              {loading ? "LOADING..." : "LOAD MORE"}
             </button>
           </div>
         )}
