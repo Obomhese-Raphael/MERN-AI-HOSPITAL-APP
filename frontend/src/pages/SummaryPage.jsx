@@ -289,7 +289,7 @@ const CallSummary = () => {
                           Follow-up Protocol
                         </p>
                         <p className="text-slate-800 text-sm mt-2">
-                          {data.follow_up_care_instructions}
+                          {data.follow_up_care_instructuons}
                         </p>
                       </div>
                       <div className="bg-white p-4 rounded-xl border border-rose-200 shadow-sm">
